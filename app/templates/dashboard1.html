@@ -8,6 +8,9 @@
         <h4 class="mb-0">Enter New Pollution Check Record</h4>
     </div>
     <div class="card-body">
+        {# Container for form-specific alerts added by JS #}
+        <div class="form-alert-container"></div>
+
         {# Add novalidate to let our JS handle validation feedback primarily #}
         {# Loading class will be added dynamically by JS #}
         <form method="POST" action="{{ url_for('main.dashboard1') }}" novalidate>
@@ -44,24 +47,14 @@
                  <div class="col-md-6">
                     <label for="vehicle_type" class="form-label">Vehicle Fuel Type <span class="text-danger">*</span></label>
                     {# ID must be 'vehicle_type' for JS. Options added dynamically #}
-                    <select class="form-select" id="vehicle_type" name="vehicle_type" required>
-                        <option value="" {% if not submitted_data or not submitted_data.vehicle_type %}selected{% endif %} disabled>-- Select Type --</option>
-                         {# --- Options Below Are For Server-Side Rendering Fallback/Repopulation --- #}
-                         {# JS will typically overwrite these on page load/change, #}
-                         {# but good to have if JS fails or for repopulating after server error #}
-                         {% if submitted_data and submitted_data.wheels %} {# Only populate if wheels was submitted #}
-                            {% if submitted_data.wheels == '2' %}
-                                {# JS should handle auto-selecting this, but keep for consistency #}
-                                <option value="petrol" {% if submitted_data.vehicle_type == 'petrol' %}selected{% endif %}>Petrol</option>
-                            {% else %} {# Wheels 3 or 4 #}
-                                <option value="petrol" {% if submitted_data.vehicle_type == 'petrol' %}selected{% endif %}>Petrol</option>
-                                <option value="diesel" {% if submitted_data.vehicle_type == 'diesel' %}selected{% endif %}>Diesel</option>
-                            {% endif %}
-                         {% endif %}
-                         {# --- End Fallback Options --- #}
+                    {# Keep select disabled initially, JS will enable it based on wheels #}
+                    <select class="form-select" id="vehicle_type" name="vehicle_type" required disabled>
+                        {# ONLY KEEP THE PLACEHOLDER - JS will populate the rest #}
+                        <option value="" selected disabled>-- Select Type --</option>
+                        {# ALL OTHER <option> TAGS REMOVED #}
                     </select>
                      <div class="invalid-feedback">
-                        Please select the fuel type.
+                        Please select the fuel type (after selecting wheels).
                     </div>
                      <div class="form-text mt-1">Type availability depends on wheels selected.</div> {# Helper text #}
                 </div>
