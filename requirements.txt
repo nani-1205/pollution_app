@@ -1,0 +1,5 @@
+Flask
+pymongo[srv] # [srv] is optional but helpful for Atlas URIs if you switch later
+python-dotenv
+pytz
+matplotlib

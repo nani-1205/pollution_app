@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}Enter Pollution Check Data{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">Enter New Pollution Check Record</h4>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('main.dashboard1') }}">
+            <div class="row g-3">
+                <!-- Vehicle Number -->
+                <div class="col-md-6">
+                    <label for="vehicle_no" class="form-label">Vehicle Number <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control text-uppercase" id="vehicle_no" name="vehicle_no"
+                           value="{{ submitted_data.vehicle_no if submitted_data else '' }}"
+                           placeholder="e.g., AP21AT7100" required>
+                </div>
+
+                <!-- Number of Wheels -->
+                 <div class="col-md-6">
+                    <label for="wheels" class="form-label">Number of Wheels <span class="text-danger">*</span></label>
+                    <select class="form-select" id="wheels" name="wheels" required>
+                        <option value="" {% if not submitted_data or not submitted_data.wheels %}selected{% endif %} disabled>-- Select Wheels --</option>
+                        <option value="2" {% if submitted_data and submitted_data.wheels == '2' %}selected{% endif %}>2 Wheeler</option>
+                        <option value="3" {% if submitted_data and submitted_data.wheels == '3' %}selected{% endif %}>3 Wheeler</option>
+                        <option value="4" {% if submitted_data and submitted_data.wheels == '4' %}selected{% endif %}>4 Wheeler</option>
+                    </select>
+                </div>
+
+
+                <!-- Vehicle Type (Fuel) -->
+                 <div class="col-md-6">
+                    <label for="vehicle_type" class="form-label">Vehicle Fuel Type <span class="text-danger">*</span></label>
+                    <select class="form-select" id="vehicle_type" name="vehicle_type" required>
+                        <option value="" {% if not submitted_data or not submitted_data.vehicle_type %}selected{% endif %} disabled>-- Select Type --</option>
+                        <option value="petrol" {% if submitted_data and submitted_data.vehicle_type == 'petrol' %}selected{% endif %}>Petrol</option>
+                        <option value="diesel" {% if submitted_data and submitted_data.vehicle_type == 'diesel' %}selected{% endif %}>Diesel (Only for 3/4 Wheelers)</option>
+                    </select>
+                     <div class="form-text">Note: 2-Wheelers are typically Petrol.</div>
+                </div>
+
+                <!-- Duration Period -->
+                <div class="col-md-6">
+                    <label for="duration" class="form-label">Duration Period <span class="text-danger">*</span></label>
+                    <select class="form-select" id="duration" name="duration" required>
+                         <option value="" {% if not submitted_data or not submitted_data.duration %}selected{% endif %} disabled>-- Select Duration --</option>
+                        <option value="six_months" {% if submitted_data and submitted_data.duration == 'six_months' %}selected{% endif %}>Six Months</option>
+                        <option value="one_year" {% if submitted_data and submitted_data.duration == 'one_year' %}selected{% endif %}>One Year</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <hr class="my-4">
+
+            <button class="btn btn-primary btn-lg" type="submit">Add Record</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
