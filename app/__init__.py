@@ -1,11 +1,11 @@
 import os
-from flask import Flask, g, current_app, flash # Added current_app, flash
+from flask import Flask, g, current_app, flash
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, ConfigurationError
 from dotenv import load_dotenv
 import pytz
 import logging
-from datetime import datetime # Added datetime
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -16,17 +16,14 @@ logger = logging.getLogger(__name__)
 
 # Define IST Timezone
 IST = pytz.timezone('Asia/Kolkata')
-UTC = pytz.utc # Added UTC for clarity
-
-# Global variable placeholder - managed within app context now
-# pollution_collection = None # Removed global variable
+UTC = pytz.utc
 
 def create_app():
     """Creates and configures the Flask application."""
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_mapping(
-        SECRET_KEY=os.getenv('SECRET_KEY', 'dev_secret_key'), # Default for safety
-        DEBUG=os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 't') # Read debug flag from env
+        SECRET_KEY=os.getenv('SECRET_KEY', 'dev_secret_key'),
+        DEBUG=os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
     )
 
     # --- MongoDB Connection ---
@@ -37,94 +34,86 @@ def create_app():
     mongo_auth_db = os.getenv('MONGO_AUTH_DB')
     mongo_db_name = os.getenv('MONGO_DB_NAME')
 
-    # Store connection details in app config for access later
+    # Store connection details in app config
     app.config['MONGO_IP'] = mongo_ip
     app.config['MONGO_PORT'] = mongo_port
     app.config['MONGO_USER'] = mongo_user
     app.config['MONGO_PASS'] = mongo_pass
     app.config['MONGO_AUTH_DB'] = mongo_auth_db
     app.config['MONGO_DB_NAME'] = mongo_db_name
-    app.config['POLLUTION_COLLECTION'] = None # Initialize as None
+    app.config['POLLUTION_COLLECTION'] = None
+    app.config['MONGO_CLIENT'] = None # Initialize client config key
 
     if not all([mongo_ip, mongo_port, mongo_user, mongo_pass, mongo_auth_db, mongo_db_name]):
         logger.error("Missing MongoDB configuration in .env file!")
-        # The application will continue, but DB operations will fail gracefully in routes
     else:
         try:
-            # Construct the connection string components carefully (optional, direct connection used below)
-            # uri = f"mongodb://{mongo_user}:{mongo_pass}@{mongo_ip}:{mongo_port}/?authSource={mongo_auth_db}"
             logger.info(f"Attempting to connect to MongoDB at {mongo_ip}:{mongo_port} using auth DB {mongo_auth_db}")
-
-            # Explicitly set the port as an integer
             client = MongoClient(host=mongo_ip, port=int(mongo_port),
                                  username=mongo_user, password=mongo_pass,
                                  authSource=mongo_auth_db,
-                                 # Added timeouts for robustness
-                                 serverSelectionTimeoutMS=5000, # 5 seconds timeout
-                                 connectTimeoutMS=5000,
-                                 # Consider adding retryWrites=True for resilience if supported
-                                 )
+                                 serverSelectionTimeoutMS=5000,
+                                 connectTimeoutMS=5000)
 
-            # The ismaster command is cheap and does not require auth. Checks network connectivity.
+            # Check connection
             client.admin.command('ismaster')
-            logger.info("MongoDB connection successful (pre-auth check).")
+            logger.info("MongoDB connection successful.")
 
-            # Select database and collection
             db = client[mongo_db_name]
             pollution_collection = db['pollution_checks']
 
-            # Store the collection object in app config for easy access in routes
+            # Store collection and client in app config
             app.config['POLLUTION_COLLECTION'] = pollution_collection
+            app.config['MONGO_CLIENT'] = client # Store the client instance
             logger.info(f"Using database '{mongo_db_name}' and collection 'pollution_checks'.")
 
-            # Optionally store the client itself if needed for teardown or advanced operations
-            app.config['MONGO_CLIENT'] = client
-
-
-        except ConnectionFailure as e:
-            logger.error(f"MongoDB Connection Failed: {e}")
-            # app.config['POLLUTION_COLLECTION'] remains None
-        except ConfigurationError as e:
-            logger.error(f"MongoDB Configuration Error: {e}")
-            # app.config['POLLUTION_COLLECTION'] remains None
-        except Exception as e: # Catch other potential errors like auth failures, DNS issues
-             logger.error(f"An unexpected error occurred during MongoDB setup: {e}")
-             # app.config['POLLUTION_COLLECTION'] remains None
+        except (ConnectionFailure, ConfigurationError, Exception) as e:
+             logger.error(f"MongoDB setup failed: {e}")
+             # Ensure config keys reflect failure state if client wasn't created
+             if 'client' in locals() and client:
+                 client.close() # Attempt to close if partially created
+             app.config['POLLUTION_COLLECTION'] = None
+             app.config['MONGO_CLIENT'] = None
 
 
     # --- Register Blueprints/Routes ---
-    # Use app_context to ensure imports happen after app is configured
     with app.app_context():
-        from . import routes # Import routes module where main_bp is defined
-        from . import utils  # Import utils module
+        from . import routes
+        from . import utils
 
-        # !!! REGISTER THE BLUEPRINT HERE !!!
         app.register_blueprint(routes.main_bp)
-        # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    # Make IST available globally in templates if needed
+    # Make IST available globally in templates
     app.jinja_env.globals['IST'] = IST
 
-    # Teardown context for database connection (optional, good practice)
-    # This ensures the client connection is closed when the app context ends
-    @app.teardown_appcontext
-    def teardown_db(exception=None):
-        client = app.config.pop('MONGO_CLIENT', None) # Use pop to remove it
-        if client is not None:
-            client.close()
-            logger.info("MongoDB connection closed.")
+    # --- REMOVE OR COMMENT OUT TEARDOWN ---
+    # @app.teardown_appcontext
+    # def teardown_db(exception=None):
+    #     client = app.config.pop('MONGO_CLIENT', None) # Use pop to remove it
+    #     if client is not None:
+    #         client.close()
+    #         logger.info("MongoDB connection closed.")
+    # --- END OF REMOVAL ---
 
     return app
 
 # Helper function to get the collection safely from app config
 def get_collection():
     """Gets the MongoDB collection from the application context."""
+    # Ensure we are in an app context
+    if not current_app:
+        logger.error("Attempted to get collection outside of application context.")
+        return None
+
+    # Check if client connection failed during startup
+    if not current_app.config.get('MONGO_CLIENT'):
+         logger.warning("Attempted to access MongoDB collection, but client connection failed during startup.")
+         return None
+
     collection = current_app.config.get('POLLUTION_COLLECTION')
     if collection is None:
-         # Routes should handle this by checking the return value
-         logger.warning("Attempted to access MongoDB collection, but it's not available (connection likely failed).")
-         # Avoid flashing here, let the route handle user feedback
-         # flash("Database connection error. Please check server logs.", "danger")
+         # This case might happen if DB/Collection access failed even if client connected
+         logger.warning("Attempted to access MongoDB collection, but it's not available in config.")
     return collection
 
 # Helper to get current IST time
