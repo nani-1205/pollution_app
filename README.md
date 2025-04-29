@@ -5,7 +5,7 @@ A simple web application built with Python (Flask) and MongoDB to record vehicle
 ## Features
 
 *   **Data Entry:** Record pollution check details including:
-    *   Vehicle Number (e.g., AP21AT7100)
+    *   Vehicle Number (e.g., AP1AT7111)
     *   Vehicle Fuel Type (Petrol/Diesel - dynamically adjusted based on wheels)
     *   Number of Wheels (2, 3, 4)
     *   Duration Period (Six Months / One Year)
